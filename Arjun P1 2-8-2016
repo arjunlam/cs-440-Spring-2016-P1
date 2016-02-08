@@ -138,45 +138,66 @@ int main()
 			counter++;
 
 			if (counter == numFrames) {
-				float xDiff = center.x - startCenter.x; //change in x coordinate between start and end of action
-				float yDiff = center.y - startCenter.y; //change in y coordinate between start and end of action
+				float xDiff = center.x - startCenter.x; //change in x coordinate between start and end centroid
+				float yDiff = center.y - startCenter.y; //change in y coordinate between start and end centroid
 				
-				//use absolute value for comparisons
+				//use absolute value for comparisions
 				float xa = abs(xDiff);
 				float ya = abs(yDiff);
 				if ((ya > xa) && (ya - xa) > 2.0) { //up and down movement
 					//5.0 is number the number of pixels the centroid should move for us to register the movement
 					//lower the number the more sensitive the program is to movement
-					
 					//now determine if moving up or down
 					if (yDiff > 0.0) {
 					//moving down
+						//use putText opencv function
+						c = 0;
 						cout << "MOVING DOWN" << endl;
 					}
 					else {
 					//moving up
 						cout << "MOVING UP" << endl;
+						c = 1;
 					}
 
 				}
 				else if ((xa > ya) && (xa - ya) > 2.0) { //left and right movement
-					
 					//now determine if moving left or right
 					if (xDiff > 0.0) {
 						//moving right
+						c = 2;
 						cout << "MOVING RIGHT" << endl;
 					}
 					else {
 						//moving left
+						c = 3;
 						cout << "MOVING LEFT" << endl;
 					}
 				}
 				else {
-					//yDiff and xDiff were pretty much the same and the hand was just shaking in place and not a real movement
-					cout << "YOU DIDNT MOVE" << endl;
+					//yDiff and xDiff were pretty much the same and the hand was just shaking in place
+					c = 4;
+					cout << "YOU DIDN'T MOVE" << endl;
 				}
 
-				counter = 0;
+				counter = 0; //reset counter
+
+				//output the information about your centroid movement
+				if (c == 0) {
+					putText(frame, "MOVED DOWN", Point(0, frame0.rows), 2, 1, Scalar(255, 0, 0), 2, 8, false);
+				}
+				else if (c == 1) {
+					putText(frame, "MOVED UP", Point(0, frame0.rows), 2, 1, Scalar(255, 0, 0), 2, 8, false);
+				}
+				else if (c == 2) {
+					putText(frame, "MOVED RIGHT", Point(0, frame0.rows), 2, 1, Scalar(255, 0, 0), 2, 8, false);
+				}
+				else if (c == 3) {
+					putText(frame, "MOVED LEFT", Point(0, frame0.rows), 2, 1, Scalar(255, 0, 0), 2, 8, false);
+				}
+				else {
+					putText(frame, "YOU DIDN'T MOVE", Point(0, frame0.rows), 2, 1, Scalar(255, 0, 0), 2, 8, false);
+				}
 			}
 		}
 		
