@@ -27,6 +27,7 @@ void myBackgroundDifferencing(Mat& oldframe, Mat& newframe, Mat& dst);
 Point2f startCenter; //keeps track of centroid center point
 int counter = 0; //the difference between the centroids is calculated every numFrames
 int numFrames = 5; //we check for centroid movement after this many frames have elapsed
+int c = 4; //index to keep track of which text to output for movement history
 
 //main function
 int main()
