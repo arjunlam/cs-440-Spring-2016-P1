@@ -1,12 +1,7 @@
 /*
-*	CS440 Spring 2016
-*	Lab 2
+*	CS440 Spring Project 1 (Computer vision/OpenCV)
 *	--------------
-*	This program introduces the following concepts:
-*		a) Reading a stream of images from a webcamera, and displaying the video
-*		b) Skin color detection
-*		c) Background differencing
-*		d) Visualizing motion history
+*	BY: Arjun Lamba, Matthew Bass, Michael Yuja
 *	--------------
 */
 
@@ -22,9 +17,6 @@
 
 using namespace cv;
 using namespace std;
-
-//function declarations
-void myBackgroundDifferencing(Mat& oldframe, Mat& newframe, Mat& dst);
 
 //global variables
 Point2f startCenter; //keeps track of centroid center point
@@ -82,9 +74,11 @@ int main()
 		Mat skinDest = Mat::zeros(frame.rows, frame.cols, CV_8UC1);
 		Mat x;
 		medianBlur(frame, frame, 9); //blurs the input image so the edges are smoother
+		
 		//use hsv if bacground black
 		//cvtColor(frame, x, CV_BGR2HSV);
 		//inRange(x, Scalar(0, 10, 60), Scalar(20, 150, 255), skinDest);
+		
 		//use ycrcb if background white
 		cvtColor(frame, x, COLOR_BGR2YCrCb);
 		inRange(x, Scalar(0, 133, 77), Scalar(255, 173, 127), skinDest);
@@ -99,10 +93,8 @@ int main()
 		// Documentation for finding contours: http://docs.opencv.org/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html?highlight=findcontours#findcontours
 		//use the skin thresholded image to FIND the contours but DRAW the contours on the frame image
 		findContours(skinDest, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
-		//cout << "The number of contours detected is: " << contours.size() << endl;
 
 		if (contours.size() >= 1) {
-			//Mat contour_output = Mat::zeros(x.size(), CV_8UC3);
 			// Find largest contour
 			int maxsize = 0;
 			int maxind = 0;
@@ -120,44 +112,16 @@ int main()
 
 			// Draw contours
 			// Documentation for drawing contours: http://docs.opencv.org/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html?highlight=drawcontours#drawcontours
-			//drawContours(frame, contours, maxind, Scalar(255, 0, 0), CV_FILLED, 8, hierarchy);
 			drawContours(frame, contours, maxind, Scalar(0, 0, 255), 2, 8, hierarchy);
 			// Documentation for drawing rectangle: http://docs.opencv.org/modules/core/doc/drawing_functions.html
 			rectangle(frame, boundrec, Scalar(0, 255, 0), 1, 8, 0);
 
-
-			//PROBLEM WITH THIS PART OF THE CODE
-			/*
-			vector<int> hull; //indices of convex points if you want to use it for convexitydefects
-			vector<vector<Point>> hullP(contours.size()); //its not vector<Point> because drawContour expects a 2D array
-			convexHull(contours[maxind], hull, false); //returns indicies instead of Points in hull
-			convexHull(contours[maxind], hullP[maxind], false); //draw contours expects an array of arrays, returns Points in hullP
-			drawContours(frame, hullP, 0, Scalar(255, 0, 0), 2, 8, hierarchy);
-			*/
-
-			//USE CAN USE CONVEXITY DEFECTS AND CENTROID TO FIND OUT IF HAND ORIENTED RIGHT OR LEFT OR UP/DOWN
-			//pick deepest defect (so get coordinates of defect with highest depth)
-			//compare x & y coordinates with centroid x & y and depending on difference you can tell orientation
-
-			//DO FINGER COUNTING???????????????????????
-
-			//cout << "The area of the largest contour detected is: " << contourArea(contours[maxind]) << endl;
-			//cout << "-----------------------------" << endl << endl;
-
-			//vector<Vec4i> condefect;
-			//convexityDefects(contours[maxind], hull, condefect); //get the convexity defects (points on contour that deviate from the convexity hull)
-
-			//cout << "Normal convexity defects: " << condefect.size() << endl;
-			//cout << "Normal convex hull points: " << hullP[maxind].size() << endl;
-
 			//info: http://stackoverflow.com/questions/9074202/opencv-2-centroid
-			//http://stackoverflow.com/questions/15543496/extract-data-from-point2f
+			//more info: http://stackoverflow.com/questions/15543496/extract-data-from-point2f
 			Moments u = moments(contours[maxind], false);
 			Point2f center = Point2f(u.m10 / u.m00, u.m01 / u.m00); //centroid
 			//center is in this form: [234.566, 283.123];
-			circle(frame, center, 15, Scalar(255, 0, 0), CV_FILLED); //filled circle where there centroid is
-
-			//code below works fine, just commented out to test other code
+			circle(frame, center, 15, Scalar(255, 0, 0), CV_FILLED); //filled circle where the centroid is
 
 			if (counter == 0) {
 				startCenter = center;
@@ -178,7 +142,6 @@ int main()
 					//now determine if moving up or down
 					if (yDiff > 0.0) {
 						//moving down
-						//use putText opencv function
 						c = 0;
 						cout << "MOVING DOWN" << endl;
 					}
@@ -210,10 +173,10 @@ int main()
 				counter = 0; //reset counter
 			}
 		}
- else {
-	 c = 5;
-	 cout << "NO HAND" << endl;
- }
+		else {
+			c = 5;
+			cout << "NO HAND" << endl;
+		}
 
 		//output the information about your centroid movement
 		if (c == 0) {
