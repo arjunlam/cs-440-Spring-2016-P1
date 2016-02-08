@@ -1,6 +1,12 @@
 /*
+*	CS440 Spring 2016
+*	Lab 2
 *	--------------
-* By: Arjun Lamba
+*	This program introduces the following concepts:
+*		a) Reading a stream of images from a webcamera, and displaying the video
+*		b) Skin color detection
+*		c) Background differencing
+*		d) Visualizing motion history
 *	--------------
 */
 
@@ -13,12 +19,9 @@
 #include <iostream>
 #include <vector>
 #include <cmath> //so we can use abs function
-#include <stdio.h>
-#include <stdlib.h>
 
 using namespace cv;
 using namespace std;
-
 
 //function declarations
 void myBackgroundDifferencing(Mat& oldframe, Mat& newframe, Mat& dst);
@@ -27,7 +30,7 @@ void myBackgroundDifferencing(Mat& oldframe, Mat& newframe, Mat& dst);
 Point2f startCenter; //keeps track of centroid center point
 int counter = 0; //the difference between the centroids is calculated every numFrames
 int numFrames = 5; //we check for centroid movement after this many frames have elapsed
-int c = 4; //index to keep track of which text to output for movement history
+int c = 5; //keeps track of which movement you did so to output the correct text
 
 //main function
 int main()
@@ -38,6 +41,7 @@ int main()
 	//------------------------------------------------------------------------
 	// For more information on reading and writing video: http://docs.opencv.org/modules/highgui/doc/reading_and_writing_images_and_video.html
 	// open the video camera no. 0
+
 
 	VideoCapture cap(0);
 
@@ -74,34 +78,31 @@ int main()
 		//-------------------------------------------------
 		//	b) Skin color detection
 		//-------------------------------------------------
-		//found constants for hsv & ycrcb online
+		//found constants online
 		Mat skinDest = Mat::zeros(frame.rows, frame.cols, CV_8UC1);
 		Mat x;
 		medianBlur(frame, frame, 9); //blurs the input image so the edges are smoother
-		
-		//use either the hsv or ycrcb, both should not be uncommented
-		//USE HSV FOR BLACK BLACKGROUND
+		//use hsv if bacground black
 		//cvtColor(frame, x, CV_BGR2HSV);
 		//inRange(x, Scalar(0, 10, 60), Scalar(20, 150, 255), skinDest);
-		
-		//USE YCRCB FOR WHITE BACKGROUND
+		//use ycrcb if background white
 		cvtColor(frame, x, COLOR_BGR2YCrCb);
 		inRange(x, Scalar(0, 133, 77), Scalar(255, 173, 127), skinDest);
-		
-		morphologyEx(skinDest, skinDest, MORPH_CLOSE, getStructuringElement(MORPH_ELLIPSE, Size(5, 5))); //dilates and erodes the binary image to make it smoother
+		morphologyEx(skinDest, skinDest, MORPH_CLOSE, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)));
 		imshow("skinDetection", skinDest);
 
 
-		//Code for finding biggest contour given in Lab 3
+		//Lab 3 given
 		vector<vector<Point>> contours;
 		vector<Vec4i> hierarchy;
 		// Find contours
 		// Documentation for finding contours: http://docs.opencv.org/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html?highlight=findcontours#findcontours
-		
 		//use the skin thresholded image to FIND the contours but DRAW the contours on the frame image
 		findContours(skinDest, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+		//cout << "The number of contours detected is: " << contours.size() << endl;
 
 		if (contours.size() >= 1) {
+			//Mat contour_output = Mat::zeros(x.size(), CV_8UC3);
 			// Find largest contour
 			int maxsize = 0;
 			int maxind = 0;
@@ -119,19 +120,45 @@ int main()
 
 			// Draw contours
 			// Documentation for drawing contours: http://docs.opencv.org/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html?highlight=drawcontours#drawcontours
-			drawContours(frame, contours, maxind, Scalar(0, 0, 255), 2, 8, hierarchy); //draw contour around hand
+			//drawContours(frame, contours, maxind, Scalar(255, 0, 0), CV_FILLED, 8, hierarchy);
+			drawContours(frame, contours, maxind, Scalar(0, 0, 255), 2, 8, hierarchy);
 			// Documentation for drawing rectangle: http://docs.opencv.org/modules/core/doc/drawing_functions.html
-			rectangle(frame, boundrec, Scalar(0, 255, 0), 1, 8, 0); //draw rectangle around hand
-			
-			
+			rectangle(frame, boundrec, Scalar(0, 255, 0), 1, 8, 0);
+
+
+			//PROBLEM WITH THIS PART OF THE CODE
+			/*
+			vector<int> hull; //indices of convex points if you want to use it for convexitydefects
+			vector<vector<Point>> hullP(contours.size()); //its not vector<Point> because drawContour expects a 2D array
+			convexHull(contours[maxind], hull, false); //returns indicies instead of Points in hull
+			convexHull(contours[maxind], hullP[maxind], false); //draw contours expects an array of arrays, returns Points in hullP
+			drawContours(frame, hullP, 0, Scalar(255, 0, 0), 2, 8, hierarchy);
+			*/
+
+			//USE CAN USE CONVEXITY DEFECTS AND CENTROID TO FIND OUT IF HAND ORIENTED RIGHT OR LEFT OR UP/DOWN
+			//pick deepest defect (so get coordinates of defect with highest depth)
+			//compare x & y coordinates with centroid x & y and depending on difference you can tell orientation
+
+			//DO FINGER COUNTING???????????????????????
+
+			//cout << "The area of the largest contour detected is: " << contourArea(contours[maxind]) << endl;
+			//cout << "-----------------------------" << endl << endl;
+
+			//vector<Vec4i> condefect;
+			//convexityDefects(contours[maxind], hull, condefect); //get the convexity defects (points on contour that deviate from the convexity hull)
+
+			//cout << "Normal convexity defects: " << condefect.size() << endl;
+			//cout << "Normal convex hull points: " << hullP[maxind].size() << endl;
+
 			//info: http://stackoverflow.com/questions/9074202/opencv-2-centroid
-			//more info: http://stackoverflow.com/questions/15543496/extract-data-from-point2f
+			//http://stackoverflow.com/questions/15543496/extract-data-from-point2f
 			Moments u = moments(contours[maxind], false);
-			Point2f center = Point2f(u.m10/u.m00, u.m01/u.m00); //centroid center point
-			
-			//center point is in this form: [234.566, 283.123];
-			circle(frame, center, 15, Scalar(255, 0, 0), CV_FILLED);
-			
+			Point2f center = Point2f(u.m10 / u.m00, u.m01 / u.m00); //centroid
+			//center is in this form: [234.566, 283.123];
+			circle(frame, center, 15, Scalar(255, 0, 0), CV_FILLED); //filled circle where there centroid is
+
+			//code below works fine, just commented out to test other code
+
 			if (counter == 0) {
 				startCenter = center;
 			}
@@ -145,7 +172,7 @@ int main()
 				//use absolute value for comparisions
 				float xa = abs(xDiff);
 				float ya = abs(yDiff);
-				if ((ya > xa) && (ya - xa) > 2.0) { //up and down movement
+				if ((ya > xa) && (ya - xa) > 5.0) { //up and down movement
 					//5.0 is number the number of pixels the centroid should move for us to register the movement
 					//lower the number the more sensitive the program is to movement
 					//now determine if moving up or down
@@ -160,9 +187,8 @@ int main()
 						cout << "MOVING UP" << endl;
 						c = 1;
 					}
-
 				}
-				else if ((xa > ya) && (xa - ya) > 2.0) { //left and right movement
+				else if ((xa > ya) && (xa - ya) > 5.0) { //left and right movement
 					//now determine if moving left or right
 					if (xDiff > 0.0) {
 						//moving right
@@ -180,31 +206,39 @@ int main()
 					c = 4;
 					cout << "YOU DIDN'T MOVE" << endl;
 				}
-			}
 
-			counter = 0; //reset counter
-
-			//output the information about your centroid movement
-			if (c == 0) {
-				putText(frame, "MOVED DOWN", Point(0, frame0.rows), 2, 1, Scalar(255, 0, 0), 2, 8, false);
-			}
-			else if (c == 1) {
-				putText(frame, "MOVED UP", Point(0, frame0.rows), 2, 1, Scalar(255, 0, 0), 2, 8, false);
-			}
-			else if (c == 2) {
-				putText(frame, "MOVED RIGHT", Point(0, frame0.rows), 2, 1, Scalar(255, 0, 0), 2, 8, false);
-			}
-			else if (c == 3) {
-				putText(frame, "MOVED LEFT", Point(0, frame0.rows), 2, 1, Scalar(255, 0, 0), 2, 8, false);
-			}
-			else {
-				putText(frame, "YOU DIDN'T MOVE", Point(0, frame0.rows), 2, 1, Scalar(255, 0, 0), 2, 8, false);
+				counter = 0; //reset counter
 			}
 		}
-		
-		//outputs the frame window and any graphical changes to itf
-		namedWindow("Contours", CV_WINDOW_AUTOSIZE);
-		imshow("Contours", frame);
+ else {
+	 c = 5;
+	 cout << "NO HAND" << endl;
+ }
+
+		//output the information about your centroid movement
+		if (c == 0) {
+			putText(frame, "MOVED DOWN", Point(0, frame0.rows), 2, 1, Scalar(0, 255, 0), 2, 8, false);
+		}
+		else if (c == 1) {
+			putText(frame, "MOVED UP", Point(0, frame0.rows), 2, 1, Scalar(0, 255, 0), 2, 8, false);
+		}
+		else if (c == 2) {
+			putText(frame, "MOVED RIGHT", Point(0, frame0.rows), 2, 1, Scalar(0, 255, 0), 2, 8, false);
+		}
+		else if (c == 3) {
+			putText(frame, "MOVED LEFT", Point(0, frame0.rows), 2, 1, Scalar(0, 255, 0), 2, 8, false);
+		}
+		else if (c == 4) {
+			putText(frame, "YOU DIDN'T MOVE", Point(0, frame0.rows), 2, 1, Scalar(0, 255, 0), 2, 8, false);
+		}
+		else {
+			putText(frame, "NO HAND", Point(0, frame0.rows), 2, 1, Scalar(0, 255, 0), 2, 8, false);
+		}
+
+
+		//outputs the frame window and any graphical changes to it
+		namedWindow("Final output", CV_WINDOW_AUTOSIZE);
+		imshow("Final output", frame);
 
 		if (waitKey(30) == 27) {
 			cout << "esc key is pressed by user" << endl;
