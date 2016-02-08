@@ -1,0 +1,194 @@
+/*
+*	--------------
+* By: Arjun Lamba
+*	--------------
+*/
+
+#include "stdafx.h"
+//opencv libraries
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+//C++ standard libraries
+#include <iostream>
+#include <vector>
+#include <cmath> //so we can use abs function
+#include <stdio.h>
+#include <stdlib.h>
+
+using namespace cv;
+using namespace std;
+
+
+//function declarations
+void myBackgroundDifferencing(Mat& oldframe, Mat& newframe, Mat& dst);
+
+//global variables
+Point2f startCenter; //keeps track of centroid center point
+int counter = 0; //the difference between the centroids is calculated every numFrames
+int numFrames = 5; //we check for centroid movement after this many frames have elapsed
+
+//main function
+int main()
+{
+
+	//------------------------------------------------------------------------
+	// Reading a stream of images from a webcamera, and displaying the video
+	//------------------------------------------------------------------------
+	// For more information on reading and writing video: http://docs.opencv.org/modules/highgui/doc/reading_and_writing_images_and_video.html
+	// open the video camera no. 0
+
+	VideoCapture cap(0);
+
+	// if not successful, exit program
+	if (!cap.isOpened()) {
+		cout << "Cannot open the video cam" << endl;
+		return -1;
+	}
+
+	// Mat object to read first frame
+	Mat frame0;
+
+	// read a new frame from video
+	bool bSuccess0 = cap.read(frame0);
+
+	//if not successful, break loop
+	if (!bSuccess0)
+	{
+		cout << "Cannot read a frame from video stream" << endl;
+	}
+
+
+	while (1) {
+		// read a new frame from video
+		Mat frame;
+		bool bSuccess = cap.read(frame);
+
+		//if not successful, break loop
+		if (!bSuccess) {
+			cout << "Cannot read a frame from video stream" << endl;
+			break;
+		}
+
+		//-------------------------------------------------
+		//	b) Skin color detection
+		//-------------------------------------------------
+		//found constants for hsv & ycrcb online
+		Mat skinDest = Mat::zeros(frame.rows, frame.cols, CV_8UC1);
+		Mat x;
+		medianBlur(frame, frame, 9); //blurs the input image so the edges are smoother
+		
+		//use either the hsv or ycrcb, both should not be uncommented
+		//USE HSV FOR BLACK BLACKGROUND
+		//cvtColor(frame, x, CV_BGR2HSV);
+		//inRange(x, Scalar(0, 10, 60), Scalar(20, 150, 255), skinDest);
+		
+		//USE YCRCB FOR WHITE BACKGROUND
+		cvtColor(frame, x, COLOR_BGR2YCrCb);
+		inRange(x, Scalar(0, 133, 77), Scalar(255, 173, 127), skinDest);
+		
+		morphologyEx(skinDest, skinDest, MORPH_CLOSE, getStructuringElement(MORPH_ELLIPSE, Size(5, 5))); //dilates and erodes the binary image to make it smoother
+		imshow("skinDetection", skinDest);
+
+
+		//Code for finding biggest contour given in Lab 3
+		vector<vector<Point>> contours;
+		vector<Vec4i> hierarchy;
+		// Find contours
+		// Documentation for finding contours: http://docs.opencv.org/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html?highlight=findcontours#findcontours
+		
+		//use the skin thresholded image to FIND the contours but DRAW the contours on the frame image
+		findContours(skinDest, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+
+		if (contours.size() >= 1) {
+			// Find largest contour
+			int maxsize = 0;
+			int maxind = 0;
+			Rect boundrec;
+			for (int i = 0; i < contours.size(); i++)
+			{
+				// Documentation on contourArea: http://docs.opencv.org/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html#
+				double area = contourArea(contours[i]);
+				if (area > maxsize) {
+					maxsize = area;
+					maxind = i;
+					boundrec = boundingRect(contours[i]);
+				}
+			}
+
+			// Draw contours
+			// Documentation for drawing contours: http://docs.opencv.org/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html?highlight=drawcontours#drawcontours
+			drawContours(frame, contours, maxind, Scalar(0, 0, 255), 2, 8, hierarchy); //draw contour around hand
+			// Documentation for drawing rectangle: http://docs.opencv.org/modules/core/doc/drawing_functions.html
+			rectangle(frame, boundrec, Scalar(0, 255, 0), 1, 8, 0); //draw rectangle around hand
+			
+			
+			//info: http://stackoverflow.com/questions/9074202/opencv-2-centroid
+			//more info: http://stackoverflow.com/questions/15543496/extract-data-from-point2f
+			Moments u = moments(contours[maxind], false);
+			Point2f center = Point2f(u.m10/u.m00, u.m01/u.m00); //centroid center point
+			
+			//center point is in this form: [234.566, 283.123];
+			circle(frame, center, 15, Scalar(255, 0, 0), CV_FILLED);
+			
+			if (counter == 0) {
+				startCenter = center;
+			}
+
+			counter++;
+
+			if (counter == numFrames) {
+				float xDiff = center.x - startCenter.x; //change in x coordinate between start and end of action
+				float yDiff = center.y - startCenter.y; //change in y coordinate between start and end of action
+				
+				//use absolute value for comparisons
+				float xa = abs(xDiff);
+				float ya = abs(yDiff);
+				if ((ya > xa) && (ya - xa) > 2.0) { //up and down movement
+					//5.0 is number the number of pixels the centroid should move for us to register the movement
+					//lower the number the more sensitive the program is to movement
+					
+					//now determine if moving up or down
+					if (yDiff > 0.0) {
+					//moving down
+						cout << "MOVING DOWN" << endl;
+					}
+					else {
+					//moving up
+						cout << "MOVING UP" << endl;
+					}
+
+				}
+				else if ((xa > ya) && (xa - ya) > 2.0) { //left and right movement
+					
+					//now determine if moving left or right
+					if (xDiff > 0.0) {
+						//moving right
+						cout << "MOVING RIGHT" << endl;
+					}
+					else {
+						//moving left
+						cout << "MOVING LEFT" << endl;
+					}
+				}
+				else {
+					//yDiff and xDiff were pretty much the same and the hand was just shaking in place and not a real movement
+					cout << "YOU DIDNT MOVE" << endl;
+				}
+
+				counter = 0;
+			}
+		}
+		
+		//outputs the frame window and any graphical changes to itf
+		namedWindow("Contours", CV_WINDOW_AUTOSIZE);
+		imshow("Contours", frame);
+
+		if (waitKey(30) == 27) {
+			cout << "esc key is pressed by user" << endl;
+			break;
+		}
+	}
+	cap.release();
+	return 0;
+}
